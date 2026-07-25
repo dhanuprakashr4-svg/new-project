@@ -14,6 +14,8 @@ import { Incidents } from '@/pages/Incidents';
 import { IncidentDetail } from '@/pages/IncidentDetail';
 import { AttackVisualization } from '@/pages/AttackVisualization';
 import { Honeypot } from '@/pages/Honeypot';
+import { DetectionMetrics } from '@/pages/DetectionMetrics';
+import { AttackExplanation } from '@/pages/AttackExplanation';
 
 export default function App() {
   return (
@@ -23,7 +25,9 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="threat-detection" element={<ThreatDetection />} />
           <Route path="attack-viz" element={<AttackVisualization />} />
+          <Route path="attack-explain" element={<AttackExplanation />} />
           <Route path="honeypot" element={<Honeypot />} />
+          <Route path="detection-metrics" element={<DetectionMetrics />} />
           <Route path="incidents" element={<Incidents />} />
           <Route path="incidents/:id" element={<IncidentDetail />} />
           <Route path="lab" element={<DetectionLab />} />

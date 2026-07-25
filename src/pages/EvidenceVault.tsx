@@ -12,6 +12,7 @@ import {
   buildIncidentReport, reportToText, encryptReport,
   type CipherAlgorithm, type CipherReportResult, type IncidentReport,
 } from '@/lib/cipherReport';
+import { generateIncidentPdf, buildReportDataFromIncident } from '@/lib/pdfReport';
 import type { EvidenceRecord, Incident } from '@/lib/types';
 
 export function EvidenceVault() {
@@ -79,6 +80,13 @@ export function EvidenceVault() {
     a.click();
     URL.revokeObjectURL(url);
   }, []);
+
+  const downloadPdfReport = useCallback(() => {
+    if (!cipherIncident) return;
+    const data = buildReportDataFromIncident(cipherIncident);
+    const doc = generateIncidentPdf(data);
+    doc.save(`incident_report_${cipherIncident.id}.pdf`);
+  }, [cipherIncident]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -326,15 +334,18 @@ export function EvidenceVault() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => downloadReport(cipherResult.cipherB64, `cipher_${selected?.id || 'report'}.txt`)}
-                        className="soc-btn-ghost text-xs flex-1"
+                        className="soc-btn-ghost text-xs"
                       >
-                        <Download className="w-3.5 h-3.5" /> Download Cipher
+                        <Download className="w-3.5 h-3.5" /> Cipher
                       </button>
-                      <Link to="/voxcrypt" className="soc-btn-primary text-xs flex-1">
-                        <ArrowRight className="w-3.5 h-3.5" /> Send to VoxCrypt
+                      <button onClick={downloadPdfReport} className="soc-btn-ghost text-xs">
+                        <FileText className="w-3.5 h-3.5" /> PDF Report
+                      </button>
+                      <Link to="/voxcrypt" className="soc-btn-primary text-xs">
+                        <ArrowRight className="w-3.5 h-3.5" /> VoxCrypt
                       </Link>
                     </div>
                   </div>

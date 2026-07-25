@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft, FileWarning, Brain, Network, Shield, Clock,
-  Target, Zap, CheckCircle2, AlertTriangle, Lock, Hash,
+  Target, Zap, CheckCircle2, AlertTriangle, Lock, Hash, Download, ShieldCheck,
 } from 'lucide-react';
 import { Panel, ThreatBadge, StatusPill, ScoreRing, Loader, EmptyState } from '@/components/ui/Primitives';
 import { ShapBarChart } from '@/components/ui/Charts';
@@ -10,6 +10,8 @@ import { loadIncidents, loadEvidence } from '@/lib/api';
 import { analyzeEvent, copilotSummarizeAttack, copilotRecommendResponse } from '@/lib/aiAssistant';
 import { DATASETS } from '@/lib/datasets';
 import { getMitre } from '@/lib/mitre';
+import { getNistMapping, NIST_COLORS, NIST_FUNCTIONS } from '@/lib/nist';
+import { generateIncidentPdf, buildReportDataFromIncident } from '@/lib/pdfReport';
 import type { Incident, EvidenceRecord, AIDetection } from '@/lib/types';
 
 export function IncidentDetail() {
@@ -59,11 +61,24 @@ export function IncidentDetail() {
     ...(evidence ? [{ time: evidence.timestamp, event: 'Evidence packaged & encrypted', icon: Lock, color: 'text-secure-400' }] : []),
   ];
 
+  const nist = getNistMapping(incident.mitre);
+
+  const handleDownloadPdf = () => {
+    const data = buildReportDataFromIncident(incident);
+    const doc = generateIncidentPdf(data);
+    doc.save(`incident_${incident.id}.pdf`);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <Link to="/incidents" className="soc-btn-ghost inline-flex">
-        <ArrowLeft className="w-4 h-4" /> Back to Incidents
-      </Link>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <Link to="/incidents" className="soc-btn-ghost inline-flex">
+          <ArrowLeft className="w-4 h-4" /> Back to Incidents
+        </Link>
+        <button onClick={handleDownloadPdf} className="soc-btn-primary">
+          <Download className="w-4 h-4" /> Download PDF Report
+        </button>
+      </div>
 
       {/* Header */}
       <div className="glass-panel p-5 flex items-center justify-between flex-wrap gap-4">
@@ -193,6 +208,41 @@ export function IncidentDetail() {
           ) : (
             <Panel title="Evidence Information" icon={Shield}>
               <EmptyState icon={Shield} title="No evidence packaged" hint="Create evidence in the Evidence Vault." />
+            </Panel>
+          )}
+
+          {nist && (
+            <Panel title="NIST CSF Mapping" icon={ShieldCheck}>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-soc-400">Primary Function:</span>
+                  <span className="text-sm font-semibold px-2 py-0.5 rounded" style={{ color: NIST_COLORS[nist.primaryFunction], backgroundColor: NIST_COLORS[nist.primaryFunction] + '20' }}>
+                    {nist.primaryFunction}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {nist.nistFunctions.map((fn) => (
+                    <span key={fn} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: NIST_COLORS[fn], backgroundColor: NIST_COLORS[fn] + '15' }}>
+                      {fn}
+                    </span>
+                  ))}
+                </div>
+                <div>
+                  <p className="text-xs text-soc-500 uppercase mb-1">NIST Categories</p>
+                  {nist.categories.map((cat, i) => (
+                    <p key={i} className="text-xs text-soc-300 mt-1">{cat}</p>
+                  ))}
+                </div>
+                <div>
+                  <p className="text-xs text-soc-500 uppercase mb-1">Recommended Defensive Actions</p>
+                  {nist.defensiveActions.map((action, i) => (
+                    <div key={i} className="flex items-start gap-2 mt-1">
+                      <ShieldCheck className="w-3 h-3 text-secure-400 mt-0.5 shrink-0" />
+                      <span className="text-xs text-soc-300">{action}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </Panel>
           )}
 

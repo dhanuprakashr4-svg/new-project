@@ -15,6 +15,8 @@ import {
   Cpu,
   Bug,
   Activity,
+  Grid3x3,
+  Volume2,
 } from 'lucide-react';
 
 interface NavItem {
@@ -29,7 +31,9 @@ const NAV: NavItem[] = [
   { to: '/', label: 'Command Dashboard', icon: LayoutDashboard, group: 'Operations' },
   { to: '/threat-detection', label: 'AI Threat Detection', icon: Radar, group: 'Operations' },
   { to: '/attack-viz', label: 'Attack Visualization', icon: Activity, group: 'Operations', badge: 'New' },
+  { to: '/attack-explain', label: 'Attack Explanation (Audio)', icon: Volume2, group: 'Operations', badge: 'New' },
   { to: '/honeypot', label: 'Honeypot Defense', icon: Bug, group: 'Operations', badge: 'New' },
+  { to: '/detection-metrics', label: 'Confusion Matrix & Metrics', icon: Grid3x3, group: 'Detection Engineering', badge: 'New' },
   { to: '/incidents', label: 'Incident Investigation', icon: FileWarning, group: 'Operations' },
 
   { to: '/lab', label: 'Sigma Detection Lab', icon: FlaskConical, group: 'Detection Engineering', badge: 'Core' },

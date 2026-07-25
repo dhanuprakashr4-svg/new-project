@@ -1,13 +1,14 @@
 import { useState, useCallback } from 'react';
 import {
   Play, CheckCircle2, AlertTriangle, AlertOctagon, Save,
-  Database, Target, Shield, Zap, FileText, Sparkles,
+  Database, Target, Shield, Zap, FileText, Sparkles, FlaskRound, TrendingUp,
 } from 'lucide-react';
 import { MonacoYamlEditor } from '@/components/ui/MonacoEditor';
 import { Panel, MetricTile, ThreatBadge } from '@/components/ui/Primitives';
 import { DATASETS } from '@/lib/datasets';
 import { validateRuleServer, runRuleServer, saveSigmaRule, logRuleRun, localValidate } from '@/lib/api';
 import { suggestSigmaRule } from '@/lib/aiAssistant';
+import { FPR_THRESHOLD } from '@/lib/detectionMetrics';
 import type { ValidationResult, RunRuleResult, LogDataset } from '@/lib/types';
 
 const STARTER_RULE = `title: Suspicious Encoded PowerShell Execution
@@ -46,6 +47,9 @@ export function DetectionLab() {
   const [validating, setValidating] = useState(false);
   const [running, setRunning] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [safeMode, setSafeMode] = useState(true);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimization, setOptimization] = useState<{ suggestions: string[]; fprCompliant: boolean } | null>(null);
 
   const handleValidate = useCallback(async () => {
     setValidating(true);
@@ -99,7 +103,38 @@ export function DetectionLab() {
     setYaml(suggestSigmaRule('T1059.001'));
     setValidation(null);
     setResult(null);
+    setOptimization(null);
   }, []);
+
+  const handleOptimize = useCallback(async () => {
+    if (!result) return;
+    setOptimizing(true);
+    const suggestions: string[] = [];
+    const fprCompliant = result.falsePositiveRate < FPR_THRESHOLD;
+
+    if (result.falsePositives > 0) {
+      suggestions.push(`Add a filter selection to exclude ${result.falsePositives} false positive(s) — current FPR is ${(result.falsePositiveRate * 100).toFixed(1)}%`);
+    }
+    if (result.falseNegatives > 0) {
+      suggestions.push(`Widen detection criteria to catch ${result.falseNegatives} missed malicious event(s) — recall is only ${(result.recall * 100).toFixed(0)}%`);
+    }
+    if (result.precision < 0.6) {
+      suggestions.push('Increase precision by adding more specific field matchers or tightening the condition logic');
+    }
+    if (result.recall < 1.0) {
+      suggestions.push('Add additional selection patterns to cover all known malicious variants and improve recall to 100%');
+    }
+    if (!fprCompliant) {
+      suggestions.push(`CRITICAL: FPR (${(result.falsePositiveRate * 100).toFixed(1)}%) exceeds the ${FPR_THRESHOLD * 100}% threshold — add exclusions immediately`);
+    }
+    if (suggestions.length === 0) {
+      suggestions.push('Rule is well-optimized — all metrics meet the hackathon compliance thresholds');
+    }
+    suggestions.push('Pre-deployment check: rule validated against synthetic dataset in safe testing environment — no production impact');
+
+    setOptimization({ suggestions, fprCompliant });
+    setOptimizing(false);
+  }, [result]);
 
   const editorMarkers: { line: number; message: string; severity: 'error' | 'warning' }[] = [
     ...(validation?.errors || []).filter((e) => e.line).map((e) => ({ line: e.line!, message: e.message, severity: 'error' as const })),
@@ -119,6 +154,10 @@ export function DetectionLab() {
             <Play className="w-4 h-4" />
             {running ? 'Running...' : 'Run Detection'}
           </button>
+          <button onClick={handleOptimize} disabled={optimizing || !result} className="soc-btn-ghost">
+            <TrendingUp className="w-4 h-4 text-cyber-400" />
+            {optimizing ? 'Optimizing...' : 'Optimize & Operationalize'}
+          </button>
           <button onClick={handleSave} className="soc-btn-ghost">
             <Save className="w-4 h-4" />
             {saved ? 'Saved!' : 'Save Rule'}
@@ -126,6 +165,17 @@ export function DetectionLab() {
           <button onClick={handleSuggest} className="soc-btn-ghost">
             <Sparkles className="w-4 h-4 text-cyber-400" />
             AI Suggest
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSafeMode(!safeMode)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs border transition-all ${
+              safeMode ? 'bg-secure-500/15 border-secure-500/40 text-secure-300' : 'bg-soc-800/40 border-soc-700/40 text-soc-400'
+            }`}
+          >
+            <FlaskRound className="w-3.5 h-3.5" />
+            {safeMode ? 'Safe Test Mode (No Production Impact)' : 'Safe Test Mode: OFF'}
           </button>
         </div>
       </div>
@@ -296,6 +346,35 @@ export function DetectionLab() {
                   )}
                 </div>
               </Panel>
+
+              {optimization && (
+                <Panel
+                  title="Optimization & Operationalization"
+                  icon={TrendingUp}
+                  action={
+                    <span className={`text-xs font-semibold ${optimization.fprCompliant ? 'text-secure-400' : 'text-threat-400'}`}>
+                      FPR {optimization.fprCompliant ? 'OK' : 'HIGH'}
+                    </span>
+                  }
+                >
+                  {safeMode && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-secure-500/10 border border-secure-500/30 mb-2">
+                      <FlaskRound className="w-3.5 h-3.5 text-secure-400" />
+                      <span className="text-xs text-secure-300">Tested in safe environment — no production systems affected</span>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    {optimization.suggestions.map((s, i) => (
+                      <div key={i} className={`flex items-start gap-2 p-2 rounded text-xs ${
+                        s.startsWith('CRITICAL') ? 'bg-threat-500/10 border border-threat-500/30' : 'bg-soc-800/40 border border-soc-700/40'
+                      }`}>
+                        <Zap className={`w-3 h-3 mt-0.5 shrink-0 ${s.startsWith('CRITICAL') ? 'text-threat-400' : 'text-cyber-400'}`} />
+                        <span className={s.startsWith('CRITICAL') ? 'text-threat-300' : 'text-soc-300'}>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              )}
             </>
           )}
         </div>
